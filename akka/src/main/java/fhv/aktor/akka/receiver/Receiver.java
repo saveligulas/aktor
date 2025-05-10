@@ -1,5 +1,5 @@
 package fhv.aktor.akka.receiver;
 
-public interface SimpleReceiver<T> {
+public interface Receiver<T> {
     void receive(T t);
 }
