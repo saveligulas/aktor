@@ -16,12 +16,12 @@ import fhv.aktor.akka.subordinate.device.BlindsActor;
 import fhv.aktor.akka.subordinate.sensor.TemperatureSensor;
 import fhv.aktor.akka.subordinate.sensor.WeatherSensor;
 
-public class GuardianActor extends AbstractBehavior<Void> {
+public class HomeAutomationActor extends AbstractBehavior<Void> {
     public static Behavior<Void> create() {
-        return Behaviors.setup(GuardianActor::new);
+        return Behaviors.setup(HomeAutomationActor::new);
     }
 
-    private GuardianActor(ActorContext<Void> context) {
+    private HomeAutomationActor(ActorContext<Void> context) {
         super(context);
 
         ActorRef<BlackboardCommand> blackboard = context.spawn(BlackboardActor.create(new BlackboardField.Registry()), "blackboard");
