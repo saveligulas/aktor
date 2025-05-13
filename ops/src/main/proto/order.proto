@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option java_package = "fhv.ops.proto";
+option java_multiple_files = true;
+
+service OrderProcessor {
+  rpc Order(ProductOrderRequest) returns (Receipt);
+}
+
+message ProductOrderRequest {
+  string product = 1;
+  int32 amount = 2;
+}
+
+message Product {
+  string name = 1;
+  int32 amount = 2;
+  double unitPrice = 3;
+}
+
+message Receipt {
+  repeated Product items = 1;
+  double totalPrice = 2;
+  int64 timestamp = 3;
+}
