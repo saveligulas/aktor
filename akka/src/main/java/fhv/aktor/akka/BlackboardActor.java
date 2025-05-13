@@ -11,6 +11,7 @@ import fhv.aktor.akka.command.blackboard.observe.Condition;
 import fhv.aktor.akka.command.blackboard.observe.ObserveField;
 import fhv.aktor.akka.command.blackboard.post.PostValue;
 import fhv.aktor.akka.command.blackboard.query.Query;
+import fhv.aktor.akka.command.blackboard.query.QueryBlackboard;
 import fhv.aktor.akka.command.blackboard.query.QueryResponseCommand;
 import fhv.aktor.akka.commons.StringFormatter;
 
@@ -38,7 +39,7 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
         return newReceiveBuilder()
                 .onMessage(ObserveField.class, this::registerFieldObserver)
                 .onMessage(PostValue.class, this::onPostValue)
-                .onMessage(Query.class, this::respondToQuery) // TODO: fix
+                .onMessage(QueryBlackboard.class, this::respondToQuery) // TODO: fix
                 .build();
     }
 
