@@ -44,7 +44,13 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
     }
 
     private Behavior<BlackboardCommand> registerFieldObserver(ObserveField<?, ?, ?, ?> fieldObserver) {
-        registerObserver(fieldObserver);
+        String key = fieldObserver.key();
+        Class<?> observedValueClass = fieldObserver.getObservedValueClass();
+        if (!registry.isValidKeyAndType(key, observedValueClass)) {
+            throw new IllegalStateException("Observer is observing a non registered Field");
+        }
+        this.fieldObservers.computeIfAbsent(fieldObserver.key(), k -> new ArrayList<>()).add(fieldObserver); // TODO: implement registry to check observers for type safety
+
         return Behaviors.same();
     }
 

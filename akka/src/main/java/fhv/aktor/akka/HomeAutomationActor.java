@@ -10,7 +10,9 @@ import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.blackboard.post.PostValue;
 import fhv.aktor.akka.command.blackboard.query.QueryBlackboard;
 import fhv.aktor.akka.command.blackboard.query.StringResponseCommand;
+import fhv.aktor.akka.command.sensor.TemperatureSensorCommand;
 import fhv.aktor.akka.commons.BlackboardField;
+import fhv.aktor.akka.mqtt.MqttStreamService;
 import fhv.aktor.akka.subordinate.device.ACActor;
 import fhv.aktor.akka.subordinate.device.BlindsActor;
 import fhv.aktor.akka.subordinate.sensor.TemperatureSensor;
@@ -29,11 +31,12 @@ public class HomeAutomationActor extends AbstractBehavior<Void> {
         ActorRef<BlackboardCommand> blackboard = context.spawn(BlackboardActor.create(new BlackboardField.Registry()), "blackboard");
         ActorRef<StringResponseCommand> blackboardStringResponse = blackboard.narrow();
 
-        context.spawn(TemperatureSensor.create(blackboard),  "temperatureSensor");
+        ActorRef<TemperatureSensorCommand> tempSensor = context.spawn(TemperatureSensor.create(blackboard),  "temperatureSensor");
         context.spawn(BlindsActor.create(blackboard), "blindsActor");
         context.spawn(WeatherSensor.create(blackboard), "weatherSensor");
         context.spawn(TemperatureSensor.create(blackboard), "tempSensor");
         context.spawn(ACActor.create(blackboard), "ac");
+        MqttStreamService.start(context.getSystem(), tempSensor.narrow());
 
         blackboard.tell(new PostValue("Hello", "key"));
         blackboard.tell(new QueryBlackboard<>("key", new StringResponseCommand(), blackboardStringResponse));
