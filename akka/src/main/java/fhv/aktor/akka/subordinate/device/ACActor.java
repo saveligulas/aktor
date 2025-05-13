@@ -40,10 +40,10 @@ public class ACActor extends AbstractBlackboardSubordinateActor<ACCommand> {
                             if (previousTemp < 20 && temp >= 20) {
                                 return true;
                             }
-                            if (temp < 20 && previousTemp >= 20) {
-                                return true;
-                            }
+
+                            return temp < 20 && previousTemp >= 20;
                         }
+
                         return false;
                     }
 
