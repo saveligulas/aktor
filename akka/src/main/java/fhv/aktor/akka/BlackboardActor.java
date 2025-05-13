@@ -38,7 +38,7 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
         return newReceiveBuilder()
                 .onMessage(ObserveField.class, this::registerFieldObserver)
                 .onMessage(PostValue.class, this::onPostValue)
-                .onMessage(Query.class, this::respondToQuery)
+                .onMessage(Query.class, this::respondToQuery) // TODO: fix
                 .build();
     }
 

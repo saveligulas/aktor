@@ -24,6 +24,8 @@ public class HomeAutomationActor extends AbstractBehavior<Void> {
     private HomeAutomationActor(ActorContext<Void> context) {
         super(context);
 
+        getContext().getLog().info("HomeAutomationActor created");
+
         ActorRef<BlackboardCommand> blackboard = context.spawn(BlackboardActor.create(new BlackboardField.Registry()), "blackboard");
         ActorRef<StringResponseCommand> blackboardStringResponse = blackboard.narrow();
 

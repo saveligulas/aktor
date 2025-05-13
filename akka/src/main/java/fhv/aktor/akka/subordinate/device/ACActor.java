@@ -33,6 +33,7 @@ public class ACActor extends AbstractBlackboardSubordinateActor<ACCommand> {
             @Override
             public Condition<ACCommand, Double, TemperatureAlert, TemperatureAlert.Builder> getCondition() {
                 return new Condition<ACCommand, Double, TemperatureAlert, TemperatureAlert.Builder>() {
+
                     @Override
                     public boolean conditionMet(Double temp, Double previousTemp) {
                         if (!temp.equals(previousTemp) && previousTemp != null) {

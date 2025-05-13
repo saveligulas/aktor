@@ -1,4 +1,4 @@
-package fhv.aktor.akka.command;
+package fhv.aktor.akka.fridge;
 
 public interface FridgeCommand {
 }
