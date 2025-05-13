@@ -7,8 +7,10 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 
 public class OrderProcessingActor extends AbstractBehavior<Void> {
-    public OrderProcessingActor(ActorContext<Void> context) {
+    private OrderProcessingActor(ActorContext<Void> context) {
         super(context);
+
+        getContext().getLog().info("Order Processing System created");
     }
 
     public static Behavior<Void> create() {
