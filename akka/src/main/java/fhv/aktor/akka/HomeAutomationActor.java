@@ -26,23 +26,19 @@ public class HomeAutomationActor extends AbstractBehavior<Void> {
     private HomeAutomationActor(ActorContext<Void> context, SystemSettings systemSettings) {
         super(context);
 
-        int cycleDuration = systemSettings.updateCycle();
-
         ActorRef<BlackboardCommand> blackboard = context.spawn(BlackboardActor.create(new BlackboardField.Registry()), "blackboard");
-
         ActorRef<TemperatureSensorCommand> tempSensor = context.spawn(TemperatureSensor.create(blackboard, systemSettings.internalTemperatureSimulation()),  "temperatureSensor");
         ActorRef<WeatherSensorCommand> weatherSensor = context.spawn(WeatherSensor.create(blackboard, systemSettings.internalWeatherSimulation()), "weatherSensor");
-
         context.spawn(BlindsActor.create(blackboard), "blinds");
         context.spawn(ACActor.create(blackboard), "ac");
 
         ItemRegistry itemRegistry = ItemRegistry.withDefaults();
-
         context.spawn(FridgeActor.create(null, itemRegistry), "fridge");
 
         if (!systemSettings.internalWeatherSimulation() && !systemSettings.internalTemperatureSimulation()) {
             return;
         }
+
         MqttStreamService.start(context.getSystem(), weatherSensor.narrow(), tempSensor.narrow(), systemSettings.internalWeatherSimulation(), systemSettings.internalTemperatureSimulation());
     }
 

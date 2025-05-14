@@ -54,16 +54,6 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
         return Behaviors.same();
     }
 
-
-    private void registerObserver(ObserveField<?, ?, ?, ?> fieldObserver) {
-        String key = fieldObserver.key();
-        Class<?> observedValueClass = fieldObserver.getObservedValueClass();
-        if (!registry.isValidKeyAndType(key, observedValueClass)) {
-            throw new IllegalStateException("Observer is observing a non registered Field");
-        }
-        this.fieldObservers.computeIfAbsent(fieldObserver.key(), k -> new ArrayList<>()).add(fieldObserver); // TODO: implement registry to check observers for type safety
-    }
-
     private <C extends QueryResponseCommand<V>, V> Behavior<BlackboardCommand> respondToQuery(Query<C, V> queryBlackboard) {
         C response = queryBlackboard.command();
         Object value = board.get(queryBlackboard.key());
