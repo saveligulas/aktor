@@ -54,7 +54,7 @@ public class FridgeActor extends AbstractBehavior<FridgeCommand> {
     }
 
     private Behavior<FridgeCommand> receiveProduct(ReceiveProduct receiveProduct) {
-        if (!itemRegistry.exists(receiveProduct.itemName())) {
+        if (!itemQuantities.containsKey(receiveProduct.itemName())) {
             itemQuantities.put(receiveProduct.itemName(), receiveProduct.quantity());
         } else {
             itemQuantities.compute(receiveProduct.itemName(), (k, currentQuantity) -> currentQuantity + receiveProduct.quantity());
