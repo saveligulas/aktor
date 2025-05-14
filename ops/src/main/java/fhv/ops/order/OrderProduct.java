@@ -1,4 +1,6 @@
 package fhv.ops.order;
 
-public record OrderProduct(String name, int quantity) implements OrderCommand {
+import java.util.Map;
+
+public record OrderProduct(Map<String, Integer> productAndAmount) implements OrderCommand {
 }

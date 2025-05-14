@@ -8,14 +8,14 @@ service OrderProcessor {
 }
 
 message ProductOrderRequest {
-  string product = 1;
-  int32 amount = 2;
+  map<string, int32> productAndAmount = 1;
 }
 
 message Product {
   string name = 1;
   int32 amount = 2;
   double unitPrice = 3;
+  double totalPrice = 4;
 }
 
 message Receipt {
