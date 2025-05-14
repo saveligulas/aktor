@@ -37,11 +37,16 @@ public class BlindsActor extends AbstractBlackboardSubordinateActor<BlindsComman
                 return new Condition<BlindsCommand, WeatherCondition, WeatherConditionAlert, WeatherConditionAlert.Builder>() {
                     @Override
                     public boolean conditionMet(WeatherCondition weatherCondition, WeatherCondition previousWeatherCondition) {
+                        if (previousWeatherCondition == null) {
+                            return false;
+                        }
+
                         if (weatherCondition != previousWeatherCondition) {
                             if (weatherCondition == WeatherCondition.CLEAR || previousWeatherCondition == WeatherCondition.CLEAR) {
                                 return true;
                             }
                         }
+
                         return false;
                     }
 

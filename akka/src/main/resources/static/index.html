@@ -224,6 +224,8 @@
         const statusBoard = document.getElementById('status-board');
         statusBoard.innerHTML = ''; // Clear existing content
         
+        console.log('Received data:', data); // Log the data for debugging
+        
         // Add each blackboard value as a key-value pair
         for (const [key, value] of Object.entries(data)) {
             const keyValuePair = document.createElement('div');
@@ -240,6 +242,9 @@
             keyValuePair.appendChild(keyElement);
             keyValuePair.appendChild(valueElement);
             statusBoard.appendChild(keyValuePair);
+            
+            // Log each key-value pair for debugging
+            console.log(`Added key-value pair: ${key} = ${value}`);
         }
     }
 

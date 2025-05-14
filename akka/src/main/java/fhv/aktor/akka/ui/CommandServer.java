@@ -9,21 +9,17 @@ import akka.http.javadsl.model.HttpEntities;
 import akka.http.javadsl.model.StatusCodes;
 import akka.http.javadsl.server.AllDirectives;
 import akka.http.javadsl.server.Route;
-import akka.stream.javadsl.StreamConverters;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletionStage;
 
-public class TerminalServer extends AllDirectives {
+public class CommandServer extends AllDirectives {
 
     public void start(ActorSystem<Void> system, ActorRef<UserCommand> commandRef) throws IOException {
-        // Create routing directly for command endpoint only, not serving web UI
         Route route = new AllDirectives() {
         }.concat(
-                // Handle command requests
                 path("command", () ->
                         get(() ->
                                 parameterOptional("input", optionalInput -> {

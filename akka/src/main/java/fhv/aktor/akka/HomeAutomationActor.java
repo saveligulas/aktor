@@ -21,10 +21,11 @@ import fhv.aktor.akka.subordinate.device.MediaStationActor;
 import fhv.aktor.akka.subordinate.sensor.TemperatureSensor;
 import fhv.aktor.akka.subordinate.sensor.WeatherSensor;
 import fhv.aktor.akka.ui.HomeAutomationCommandParser;
-import fhv.aktor.akka.ui.TerminalServer;
+import fhv.aktor.akka.ui.CommandServer;
 import fhv.aktor.akka.ui.UserCommand;
 import fhv.aktor.akka.webhook.WebhookActor;
-import fhv.aktor.akka.webhook.WebhookServer;
+import fhv.aktor.akka.webhook.WebhookCommand;
+import fhv.aktor.akka.webhook.UIServer;
 
 import java.io.IOException;
 
@@ -52,14 +53,16 @@ public class HomeAutomationActor extends AbstractBehavior<Void> {
         }
 
         // Start the terminal server
-        TerminalServer terminalServer = new TerminalServer();
+        CommandServer commandServer = new CommandServer();
         ActorRef<UserCommand> parser = context.spawn(HomeAutomationCommandParser.create(mediaStation, fridge), "homeAutomationCommandParser");
-        terminalServer.start(getContext().getSystem(), parser);
+        commandServer.start(getContext().getSystem(), parser);
         
         // Start the webhook actor and HTTP server for web interface
-        ActorRef<WebhookActor.Command> webhookActor = context.spawn(WebhookActor.create(blackboard), "webhookActor");
-        WebhookServer webhookServer = new WebhookServer(webhookActor, getContext().getSystem(), parser);
-        webhookServer.start();
+        ActorRef<WebhookCommand> webhookActor = context.spawn(WebhookActor.create(blackboard), "webhookActor");
+        context.getLog().info("Current blackboard state: {}");
+        
+        UIServer UIServer = new UIServer(webhookActor, getContext().getSystem(), parser);
+        UIServer.start();
         
         context.getLog().info("Home automation system initialized with webhook server. Access the web interface at http://localhost:8081");
     }
