@@ -20,25 +20,9 @@ import java.util.concurrent.CompletionStage;
 public class TerminalServer extends AllDirectives {
 
     public void start(ActorSystem<Void> system, ActorRef<UserCommand> commandRef) throws IOException {
-        // Create routing directly
+        // Create routing directly for command endpoint only, not serving web UI
         Route route = new AllDirectives() {
         }.concat(
-                // Serve index.html on "/"
-                pathEndOrSingleSlash(() ->
-                        get(() -> {
-                            InputStream resourceStream = TerminalServer.class.getClassLoader().getResourceAsStream("static/index.html");
-                            if (resourceStream != null) {
-                                return complete(
-                                        HttpEntities.create(
-                                                ContentTypes.TEXT_HTML_UTF8,
-                                                StreamConverters.fromInputStream(() -> resourceStream)
-                                        )
-                                );
-                            } else {
-                                return complete(StatusCodes.NOT_FOUND);
-                            }
-                        })
-                ),
                 // Handle command requests
                 path("command", () ->
                         get(() ->
@@ -77,11 +61,11 @@ public class TerminalServer extends AllDirectives {
         try {
             CompletionStage<ServerBinding> serverBindingFuture =
                     Http.get(system)
-                            .newServerAt("localhost", 8080)
+                            .newServerAt("localhost", 8082)  // Changed from 8080 to 8082
                             .bind(route);
 
             serverBindingFuture.toCompletableFuture().get();
-            System.out.println("Server started on http://localhost:8080");
+            System.out.println("TerminalServer API started on http://localhost:8082/command");
 
             // The server keeps running until the system is terminated
         } catch (Exception e) {

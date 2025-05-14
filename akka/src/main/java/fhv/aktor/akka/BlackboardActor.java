@@ -39,7 +39,7 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
         return newReceiveBuilder()
                 .onMessage(ObserveField.class, this::registerFieldObserver)
                 .onMessage(PostValue.class, this::onPostValue)
-                .onMessage(QueryBlackboard.class, this::respondToQuery) // TODO: fix
+                .onMessage(QueryBlackboard.class, this::respondToQuery)
                 .build();
     }
 
@@ -59,13 +59,16 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
         Object value = board.get(queryBlackboard.key());
         System.out.println("Query for key: " + queryBlackboard.key());
 
-        if (response.getValueType().isInstance(value)) {
+        if (value != null && response.getValueType().isInstance(value)) {
             V typed = response.getValueType().cast(value);
             response.fromValue(typed);
             System.out.println("Retrieved value for query: " + value);
-            queryBlackboard.replyTo().tell(response);
+        } else {
+            response.fromValue(null);
+            System.out.println("No value found for key: " + queryBlackboard.key());
         }
-
+        
+        queryBlackboard.replyTo().tell(response);
         return Behaviors.same();
     }
 
