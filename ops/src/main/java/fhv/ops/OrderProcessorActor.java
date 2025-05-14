@@ -23,13 +23,12 @@ public class OrderProcessorActor extends AbstractBehavior<OrderCommand> {
 
     @Override
     public Receive<OrderCommand> createReceive() {
-        return newReceiveBuilder().onMessage(OrderCommand.class, this::onOrder).build();
+        return newReceiveBuilder().onMessage(OrderProduct.class, this::onOrder).build();
     }
 
-    private Behavior<OrderCommand> onOrder(OrderCommand command) {
-        if (command instanceof OrderProduct(String name, int quantity)) {
-            getContext().getLog().info("Processing Order: " + name + " " + quantity + "\n");
-        }
+    private Behavior<OrderCommand> onOrder(OrderProduct command) {
+        getContext().getLog().info("Processing Order: {} {}\n", command.name(), command.quantity());
+
         return this;
     }
 }
