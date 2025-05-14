@@ -20,7 +20,7 @@ public class TemperatureSensor extends AbstractBlackboardSubordinateActor<Temper
     private double temperature; //TODO: REMOVE
     private final Random random;
 
-    public static Behavior<TemperatureSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
+    public static Behavior<TemperatureSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean b) {
         return Behaviors.setup(ctx -> {
             TemperatureSensor temperatureSensor = new TemperatureSensor(ctx, blackboardRef);
             //ctx.getSelf().tell(new UpdateTemperature());

@@ -1,4 +1,4 @@
 package fhv.aktor.akka.command.sensor;
 
-public class UpdateWeather implements WeatherSensorCommand {
+public record UpdateWeather(String weatherCondition) implements WeatherSensorCommand {
 }

@@ -20,7 +20,7 @@ public class WeatherSensor extends AbstractBlackboardSubordinateActor<WeatherSen
 
     private final Random random;
 
-    public static Behavior<WeatherSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
+    public static Behavior<WeatherSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean b) {
         return Behaviors.setup(context -> {
             WeatherSensor sensor = new WeatherSensor(context, blackboardRef);
             // Start the update loop immediately

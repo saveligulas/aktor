@@ -8,7 +8,10 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.sensor.TemperatureSensorCommand;
+import fhv.aktor.akka.command.sensor.WeatherSensorCommand;
 import fhv.aktor.akka.commons.BlackboardField;
+import fhv.aktor.akka.fridge.FridgeActor;
+import fhv.aktor.akka.fridge.ItemRegistry;
 import fhv.aktor.akka.mqtt.MqttStreamService;
 import fhv.aktor.akka.subordinate.device.ACActor;
 import fhv.aktor.akka.subordinate.device.BlindsActor;
@@ -27,13 +30,20 @@ public class HomeAutomationActor extends AbstractBehavior<Void> {
 
         ActorRef<BlackboardCommand> blackboard = context.spawn(BlackboardActor.create(new BlackboardField.Registry()), "blackboard");
 
-        ActorRef<TemperatureSensorCommand> tempSensor = context.spawn(TemperatureSensor.create(blackboard, systemSettings.internalTemperatureSimulation(), cycleDuration),  "temperatureSensor");
-        context.spawn(WeatherSensor.create(blackboard, systemSettings.internalWeatherSimulation(), cycleDuration), "weatherSensor");
+        ActorRef<TemperatureSensorCommand> tempSensor = context.spawn(TemperatureSensor.create(blackboard, systemSettings.internalTemperatureSimulation()),  "temperatureSensor");
+        ActorRef<WeatherSensorCommand> weatherSensor = context.spawn(WeatherSensor.create(blackboard, systemSettings.internalWeatherSimulation()), "weatherSensor");
 
-        context.spawn(BlindsActor.create(blackboard), "blindsActor");
+        context.spawn(BlindsActor.create(blackboard), "blinds");
         context.spawn(ACActor.create(blackboard), "ac");
 
-        MqttStreamService.start(context.getSystem(), tempSensor.narrow(), systemSettings.internalTemperatureSimulation(), systemSettings.internalWeatherSimulation());
+        ItemRegistry itemRegistry = ItemRegistry.withDefaults();
+
+        context.spawn(FridgeActor.create(null, itemRegistry), "fridge");
+
+        if (!systemSettings.internalWeatherSimulation() && !systemSettings.internalTemperatureSimulation()) {
+            return;
+        }
+        MqttStreamService.start(context.getSystem(), weatherSensor.narrow(), tempSensor.narrow(), systemSettings.internalWeatherSimulation(), systemSettings.internalTemperatureSimulation());
     }
 
     @Override
