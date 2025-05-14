@@ -53,13 +53,13 @@ public class MqttStreamService {
             if ("environment/temperature".equals(topic)) {
                 try {
                     double temp = Double.parseDouble(payload);
-                    environmentActor.tell(new EnvironmentEvent.TemperatureReading(temp));
+                    environmentActor.tell(new TemperatureReading(temp));
                     system.log().info("Sent temperature reading: {}", temp);
                 } catch (NumberFormatException e) {
                     system.log().warn("Invalid temperature payload: {}", payload);
                 }
             } else if ("environment/weather".equals(topic)) {
-                environmentActor.tell(new EnvironmentEvent.WeatherReading(payload));
+                environmentActor.tell(new WeatherReading(payload));
                 system.log().info("Sent weather reading: {}", payload);
             } else {
                 system.log().warn("Unknown topic: {}", topic);

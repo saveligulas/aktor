@@ -11,7 +11,6 @@ import fhv.aktor.akka.command.blackboard.post.PostValue;
 import fhv.aktor.akka.command.sensor.TemperatureSensorCommand;
 import fhv.aktor.akka.command.sensor.UpdateTemperature;
 import fhv.aktor.akka.commons.BlackboardField;
-import fhv.aktor.akka.mqtt.EnvironmentEvent;
 import fhv.aktor.akka.receiver.ReceiveTemperatureChange;
 
 import java.time.Duration;
@@ -38,12 +37,12 @@ public class TemperatureSensor extends AbstractBlackboardSubordinateActor<Temper
     @Override
     public Receive<TemperatureSensorCommand> createReceive() {
         return newReceiveBuilder()
-                .onMessage(EnvironmentEvent.TemperatureReading.class, this::onTemperatureReading)
+                .onMessage(TemperatureReading.class, this::onTemperatureReading)
                 .onMessage(UpdateTemperature.class, this::onTemperatureUpdate)
                 .build();
     }
 
-    private Behavior<TemperatureSensorCommand> onTemperatureReading(EnvironmentEvent.TemperatureReading temperatureReading) {
+    private Behavior<TemperatureSensorCommand> onTemperatureReading(TemperatureReading temperatureReading) {
         Double newTemperature = temperatureReading.value();
         blackboardRef.tell(new PostValue(newTemperature, BlackboardField.TEMPERATURE.key()));
         return Behaviors.same();
