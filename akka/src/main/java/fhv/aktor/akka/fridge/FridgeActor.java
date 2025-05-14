@@ -6,7 +6,7 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.aktor.akka.fridge.command.receiveProduct;
+import fhv.aktor.akka.fridge.command.ReceiveProduct;
 import fhv.aktor.akka.fridge.command.query.OrderHistoryResponse;
 import fhv.aktor.akka.fridge.command.query.ProductsResponse;
 import fhv.aktor.akka.fridge.command.value.Order;
@@ -39,14 +39,21 @@ public class FridgeActor extends AbstractBehavior<FridgeCommand> {
     @Override
     public Receive<FridgeCommand> createReceive() {
         return newReceiveBuilder()
-                .onMessage(receiveProduct.class, this::receiveProduct)
+                .onMessage(OrderProduct.class, this::onOrderProduct)
+                .onMessage(ReceiveProduct.class, this::receiveProduct)
                 .onMessage(QueryProducts.class, this::onQueryProducts)
                 .onMessage(QueryOrders.class, this::onQueryOrders)
                 .onMessage(ConsumeProduct.class, this::consumeProduct)
                 .build();
     }
 
-    private Behavior<FridgeCommand> receiveProduct(receiveProduct receiveProduct) {
+    private Behavior<FridgeCommand> onOrderProduct(OrderProduct orderProduct) {
+        orderRef.tell(orderProduct);
+
+        return Behaviors.same();
+    }
+
+    private Behavior<FridgeCommand> receiveProduct(ReceiveProduct receiveProduct) {
         if (!itemRegistry.exists(receiveProduct.itemName())) {
             itemQuantities.put(receiveProduct.itemName(), receiveProduct.quantity());
         } else {

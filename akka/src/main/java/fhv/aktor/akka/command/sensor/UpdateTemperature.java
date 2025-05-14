@@ -1,4 +1,4 @@
 package fhv.aktor.akka.command.sensor;
 
-public class UpdateTemperature implements TemperatureSensorCommand {
+public record UpdateTemperature(double temperature) implements TemperatureSensorCommand {
 }
