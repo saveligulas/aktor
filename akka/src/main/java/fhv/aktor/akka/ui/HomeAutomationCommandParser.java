@@ -4,47 +4,56 @@ import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import fhv.aktor.akka.command.device.MediaStationCommand;
 import fhv.aktor.akka.command.device.PlayMovie;
 import fhv.aktor.akka.fridge.FridgeCommand;
 
-public class HomeAutomationCommandParser extends AbstractBehavior<CommandResponse> implements UserCommandParser {
+public class HomeAutomationCommandParser extends AbstractBehavior<UserCommand> {
     private final ActorRef<MediaStationCommand> mediaStation;
     private final ActorRef<FridgeCommand> fridge;
 
-    public HomeAutomationCommandParser(ActorContext<CommandResponse> context, ActorRef<MediaStationCommand> mediaStation, ActorRef<FridgeCommand> fridge) {
+    public static Behavior<UserCommand> create(ActorRef<MediaStationCommand> mediaStation, ActorRef<FridgeCommand> fridge) {
+        return Behaviors.setup(context -> new HomeAutomationCommandParser(context, mediaStation, fridge));
+    }
+
+    public HomeAutomationCommandParser(ActorContext<UserCommand> context, ActorRef<MediaStationCommand> mediaStation, ActorRef<FridgeCommand> fridge) {
         super(context);
         this.mediaStation = mediaStation;
         this.fridge = fridge;
     }
 
-    @Override
-    public CommandResponse execute(String input) throws InputParsingException {
-        String[] inputParts = input.split(" ");
+
+    private Behavior<UserCommand> execute(TerminalCommand input) throws InputParsingException {
+        String[] inputParts = input.command().split(" ");
 
         switch(inputParts[0]) {
             case "play" -> routeToMediaStation(inputParts);
             case "order" -> routeToFridge(inputParts);
         }
+
+        return Behaviors.same();
     }
 
-    private CommandResponse routeToMediaStation(String[] inputParts) {
+    private void routeToMediaStation(String[] inputParts) {
         mediaStation.tell(new PlayMovie() {});
     }
 
     private void routeToFridge(String[] inputParts) {
-
-
+        //TODO
     }
 
     @Override
-    public Receive<CommandResponse> createReceive() {
+    public Receive<UserCommand> createReceive() {
         return newReceiveBuilder()
                 .onMessage(CommandResponse.class, this::handleResponse)
+                .onMessage(TerminalCommand.class, this::execute)
                 .build();
     }
 
-    private Behavior<CommandResponse> handleResponse(CommandResponse commandResponse) {
+    private Behavior<UserCommand> handleResponse(CommandResponse commandResponse) {
+        //TODO: implement with Webhooks
+        return Behaviors.same();
     }
 }

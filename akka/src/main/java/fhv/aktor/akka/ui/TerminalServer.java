@@ -1,85 +1,92 @@
 package fhv.aktor.akka.ui;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
+import akka.actor.typed.ActorRef;
+import akka.actor.typed.ActorSystem;
+import akka.http.javadsl.Http;
+import akka.http.javadsl.ServerBinding;
+import akka.http.javadsl.model.ContentTypes;
+import akka.http.javadsl.model.HttpEntities;
+import akka.http.javadsl.model.StatusCodes;
+import akka.http.javadsl.server.AllDirectives;
+import akka.http.javadsl.server.Route;
+import akka.stream.javadsl.StreamConverters;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletionStage;
 
-public class TerminalServer {
-    public static void start(UserCommandParser parser) throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+public class TerminalServer extends AllDirectives {
 
-        // Serve index.html on "/"
-        server.createContext("/", exchange -> {
-            if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                exchange.sendResponseHeaders(405, -1);
-                return;
-            }
+    public void start(ActorSystem<Void> system, ActorRef<UserCommand> commandRef) throws IOException {
+        // Create routing directly
+        Route route = new AllDirectives() {
+        }.concat(
+                // Serve index.html on "/"
+                pathEndOrSingleSlash(() ->
+                        get(() -> {
+                            InputStream resourceStream = TerminalServer.class.getClassLoader().getResourceAsStream("static/index.html");
+                            if (resourceStream != null) {
+                                return complete(
+                                        HttpEntities.create(
+                                                ContentTypes.TEXT_HTML_UTF8,
+                                                StreamConverters.fromInputStream(() -> resourceStream)
+                                        )
+                                );
+                            } else {
+                                return complete(StatusCodes.NOT_FOUND);
+                            }
+                        })
+                ),
+                // Handle command requests
+                path("command", () ->
+                        get(() ->
+                                parameterOptional("input", optionalInput -> {
+                                    if (optionalInput.isPresent()) {
+                                        String input = optionalInput.get();
+                                        try {
+                                            input = URLDecoder.decode(input, StandardCharsets.UTF_8.name());
 
-            InputStream inputStream = TerminalServer.class.getClassLoader().getResourceAsStream("static/index.html");
-            if (inputStream == null) {
-                exchange.sendResponseHeaders(404, -1);
-                return;
-            }
+                                            if (input == null || input.isBlank()) {
+                                                return complete(StatusCodes.BAD_REQUEST, "No input provided.");
+                                            }
 
-            byte[] response = inputStream.readAllBytes();
-            exchange.getResponseHeaders().add("Content-Type", "text/html");
-            exchange.sendResponseHeaders(200, response.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response);
-            }
-        });
+                                            commandRef.tell(new TerminalCommand(input));
+                                            return complete(
+                                                    HttpEntities.create(
+                                                            ContentTypes.TEXT_PLAIN_UTF8,
+                                                            "EXECUTING: " + input
+                                                    )
+                                            );
 
-        server.createContext("/command", new HttpHandler() {
-            @Override
-            public void handle(HttpExchange exchange) throws IOException {
-                if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                    exchange.sendResponseHeaders(405, -1);
-                    return;
-                }
+                                        } catch (Exception e) {
+                                            return complete(
+                                                    StatusCodes.INTERNAL_SERVER_ERROR,
+                                                    "Error processing request: " + e.getMessage()
+                                            );
+                                        }
+                                    } else {
+                                        return complete(StatusCodes.BAD_REQUEST, "No input provided.");
+                                    }
+                                })
+                        )
+                )
+        );
 
-                URI requestURI = exchange.getRequestURI();
-                String query = requestURI.getQuery();
-                String input = null;
+        try {
+            CompletionStage<ServerBinding> serverBindingFuture =
+                    Http.get(system)
+                            .newServerAt("localhost", 8080)
+                            .bind(route);
 
-                if (query != null && query.startsWith("input=")) {
-                    input = query.substring("input=".length());
-                    input = java.net.URLDecoder.decode(input, "UTF-8");
-                }
+            serverBindingFuture.toCompletableFuture().get();
+            System.out.println("Server started on http://localhost:8080");
 
-                String result;
-                int status;
-                if (input == null || input.isBlank()) {
-                    result = "No input provided.";
-                    status = 400;
-                } else {
-                    // Example processing
-                    try {
-                        CommandResponse response = parser.execute(input);
-                        result = response.response();
-                        status = 200;
-                    } catch (InputParsingException e) {
-                        result = "Invalid input: " + input;
-                        status = 404;
-                    }
-                }
-
-                byte[] response = result.getBytes("UTF-8");
-                exchange.getResponseHeaders().add("Content-Type", "text/plain");
-                exchange.sendResponseHeaders(status, response.length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(response);
-                os.close();
-            }
-        });
-
-        server.setExecutor(null); // Default executor
-        server.start();
-        System.out.println("Server started on http://localhost:8080");
+            // The server keeps running until the system is terminated
+        } catch (Exception e) {
+            System.err.println("Error starting server: " + e.getMessage());
+            system.terminate();
+        }
     }
 }
