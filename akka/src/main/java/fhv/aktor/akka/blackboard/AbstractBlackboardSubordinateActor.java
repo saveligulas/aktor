@@ -1,4 +1,4 @@
-package fhv.aktor.akka;
+package fhv.aktor.akka.blackboard;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.AbstractBehavior;

@@ -1,4 +1,4 @@
-package fhv.aktor.akka;
+package fhv.aktor.akka.blackboard;
 
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.AbstractBehavior;
@@ -24,13 +24,13 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
     private final Map<String, List<ObserveField<?, ?, ?, ?>>> fieldObservers = new ConcurrentHashMap<>();
     private final BlackboardRegistry registry;
 
-    public static Behavior<BlackboardCommand> create(BlackboardRegistry registry) {
-        return Behaviors.setup(context -> new BlackboardActor(context, registry));
-    }
-
     private BlackboardActor(ActorContext<BlackboardCommand> context, BlackboardRegistry registry) {
         super(context);
         this.registry = registry;
+    }
+
+    public static Behavior<BlackboardCommand> create(BlackboardRegistry registry) {
+        return Behaviors.setup(context -> new BlackboardActor(context, registry));
     }
 
     @Override
@@ -55,7 +55,7 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
 
     private <C extends QueryResponseCommand<V>, V> Behavior<BlackboardCommand> respondToQuery(QueryBlackboard<C, V> queryBlackboard) {
         getContext().getLog().info("Handling QueryBlackboard for key: {}", queryBlackboard.key());
-        
+
         C response = queryBlackboard.command();
         Object value = board.get(queryBlackboard.key());
         getContext().getLog().info("Query for key: {} (value={})", queryBlackboard.key(), value);
@@ -68,14 +68,14 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
             response.build(queryBlackboard.key(), null);
             getContext().getLog().info("No value or incompatible type for key: {}", queryBlackboard.key());
         }
-        
+
         queryBlackboard.replyTo().tell(response);
         return Behaviors.same();
     }
 
     private Behavior<BlackboardCommand> onPostValue(PostValue postValue) {
         Object newValue = postValue.value();
-        Object oldValue = this.board.put(postValue.key(),  postValue.value());
+        Object oldValue = this.board.put(postValue.key(), postValue.value());
         getContext().getLog().info("Post Value and key: {} | {}", postValue.value(), postValue.key());
         getContext().getLog().debug("Board: {}", StringFormatter.formatMapForConsole(board));
 

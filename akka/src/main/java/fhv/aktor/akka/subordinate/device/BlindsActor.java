@@ -5,7 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.aktor.akka.AbstractBlackboardSubordinateActor;
+import fhv.aktor.akka.blackboard.AbstractBlackboardSubordinateActor;
 import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.blackboard.observe.Condition;
 import fhv.aktor.akka.command.blackboard.observe.ObserveField;
@@ -17,10 +17,6 @@ import fhv.aktor.akka.commons.BlindsState;
 import fhv.aktor.akka.commons.WeatherCondition;
 
 public class BlindsActor extends AbstractBlackboardSubordinateActor<BlindsCommand> {
-
-    public static Behavior<BlindsCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
-        return Behaviors.setup(ctx -> new BlindsActor(ctx, blackboardRef));
-    }
 
     private BlindsActor(ActorContext<BlindsCommand> context, ActorRef<BlackboardCommand> blackboardRef) {
         super(context, blackboardRef);
@@ -67,6 +63,10 @@ public class BlindsActor extends AbstractBlackboardSubordinateActor<BlindsComman
                 return WeatherCondition.class;
             }
         });
+    }
+
+    public static Behavior<BlindsCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
+        return Behaviors.setup(ctx -> new BlindsActor(ctx, blackboardRef));
     }
 
     @Override

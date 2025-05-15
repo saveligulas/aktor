@@ -20,7 +20,10 @@ dependencies {
     implementation("com.typesafe.akka:akka-slf4j_2.13:$akkaVersion") // explicitly add to satisfy version check
     implementation("com.typesafe.akka:akka-http_2.13:$akkaHttpVersion")
     implementation("com.lightbend.akka:akka-stream-alpakka-mqtt_2.13:6.0.2")
-
+    implementation("io.grpc:grpc-netty-shaded:1.72.0")
+    implementation("io.grpc:grpc-protobuf:1.72.0")
+    implementation("io.grpc:grpc-stub:1.72.0")
+    implementation(project(":ops"))
     implementation("ch.qos.logback:logback-classic:1.4.14")
 }
 

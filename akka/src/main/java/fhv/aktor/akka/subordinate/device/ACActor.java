@@ -5,7 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.aktor.akka.AbstractBlackboardSubordinateActor;
+import fhv.aktor.akka.blackboard.AbstractBlackboardSubordinateActor;
 import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.blackboard.observe.Condition;
 import fhv.aktor.akka.command.blackboard.observe.ObserveField;
@@ -16,10 +16,6 @@ import fhv.aktor.akka.commons.ACState;
 import fhv.aktor.akka.commons.BlackboardField;
 
 public class ACActor extends AbstractBlackboardSubordinateActor<ACCommand> {
-
-    public static Behavior<ACCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
-        return Behaviors.setup(context -> new ACActor(context, blackboardRef));
-    }
 
     private ACActor(ActorContext<ACCommand> context, ActorRef<BlackboardCommand> blackboardRef) {
         super(context, blackboardRef);
@@ -64,6 +60,10 @@ public class ACActor extends AbstractBlackboardSubordinateActor<ACCommand> {
                 return Double.class;
             }
         });
+    }
+
+    public static Behavior<ACCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
+        return Behaviors.setup(context -> new ACActor(context, blackboardRef));
     }
 
     @Override

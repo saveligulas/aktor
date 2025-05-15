@@ -5,7 +5,7 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.aktor.akka.AbstractBlackboardSubordinateActor;
+import fhv.aktor.akka.blackboard.AbstractBlackboardSubordinateActor;
 import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.blackboard.post.PostValue;
 import fhv.aktor.akka.command.sensor.UpdateWeather;
@@ -22,6 +22,12 @@ public class WeatherSensor extends AbstractBlackboardSubordinateActor<WeatherSen
     private final boolean useInternalSimulation;
     private WeatherConditionAdapter weatherConditionAdapter;
 
+    private WeatherSensor(ActorContext<WeatherSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
+        super(context, blackboardRef);
+        this.useInternalSimulation = useInternalSimulation;
+        this.random = new Random();
+    }
+
     public static Behavior<WeatherSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
         return Behaviors.setup(context -> {
             WeatherSensor sensor = new WeatherSensor(context, blackboardRef, useInternalSimulation);
@@ -32,12 +38,6 @@ public class WeatherSensor extends AbstractBlackboardSubordinateActor<WeatherSen
 
             return sensor;
         });
-    }
-
-    private WeatherSensor(ActorContext<WeatherSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
-        super(context, blackboardRef);
-        this.useInternalSimulation = useInternalSimulation;
-        this.random = new Random();
     }
 
     @Override

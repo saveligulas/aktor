@@ -5,13 +5,12 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.aktor.akka.AbstractBlackboardSubordinateActor;
+import fhv.aktor.akka.blackboard.AbstractBlackboardSubordinateActor;
 import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.blackboard.post.PostValue;
 import fhv.aktor.akka.command.sensor.TemperatureSensorCommand;
 import fhv.aktor.akka.command.sensor.UpdateTemperature;
 import fhv.aktor.akka.commons.BlackboardField;
-import fhv.aktor.akka.receiver.ReceiveTemperatureChange;
 
 import java.time.Duration;
 import java.util.Random;
@@ -19,6 +18,12 @@ import java.util.Random;
 public class TemperatureSensor extends AbstractBlackboardSubordinateActor<TemperatureSensorCommand> {
     private final Random random;
     private final boolean useInternalSimulation;
+
+    private TemperatureSensor(ActorContext<TemperatureSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
+        super(context, blackboardRef);
+        this.useInternalSimulation = useInternalSimulation;
+        this.random = new Random();
+    }
 
     public static Behavior<TemperatureSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
         return Behaviors.setup(ctx -> {
@@ -30,12 +35,6 @@ public class TemperatureSensor extends AbstractBlackboardSubordinateActor<Temper
 
             return temperatureSensor;
         });
-    }
-
-    private TemperatureSensor(ActorContext<TemperatureSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
-        super(context, blackboardRef);
-        this.useInternalSimulation = useInternalSimulation;
-        this.random = new Random();
     }
 
     @Override

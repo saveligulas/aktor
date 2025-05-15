@@ -6,14 +6,15 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.aktor.akka.fridge.command.ReceiveProduct;
+import fhv.aktor.akka.fridge.command.ConsumeProduct;
+import fhv.aktor.akka.fridge.command.OrderProduct;
+import fhv.aktor.akka.fridge.command.ReceiveProducts;
 import fhv.aktor.akka.fridge.command.query.OrderHistoryResponse;
 import fhv.aktor.akka.fridge.command.query.ProductsResponse;
 import fhv.aktor.akka.fridge.command.query.QueryOrders;
 import fhv.aktor.akka.fridge.command.query.QueryProducts;
 import fhv.aktor.akka.fridge.command.value.Order;
 import fhv.aktor.akka.order.OrderCommand;
-import fhv.aktor.akka.order.OrderProduct;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,10 +22,10 @@ import java.util.List;
 import java.util.Map;
 
 public class FridgeActor extends AbstractBehavior<FridgeCommand> {
-    private final ActorRef<OrderCommand> orderRef;
     private final ItemRegistry itemRegistry;
     private final Map<String, Integer> itemQuantities = new HashMap<>();
     private final List<Order> orderHistory = new ArrayList<>();
+    private ActorRef<OrderCommand> orderRef;
 
     protected FridgeActor(ActorContext<FridgeCommand> context, ActorRef<OrderCommand> orderRef, ItemRegistry itemRegistry) {
         super(context);
@@ -39,25 +40,38 @@ public class FridgeActor extends AbstractBehavior<FridgeCommand> {
     @Override
     public Receive<FridgeCommand> createReceive() {
         return newReceiveBuilder()
+                .onMessage(SetOrderRef.class, this::setOrderRef)
                 .onMessage(OrderProduct.class, this::onOrderProduct)
-                .onMessage(ReceiveProduct.class, this::receiveProduct)
+                .onMessage(ReceiveProducts.class, this::receiveProduct)
                 .onMessage(QueryProducts.class, this::onQueryProducts)
                 .onMessage(QueryOrders.class, this::onQueryOrders)
                 .onMessage(ConsumeProduct.class, this::consumeProduct)
                 .build();
     }
 
-    private Behavior<FridgeCommand> onOrderProduct(OrderProduct orderProduct) {
-        orderRef.tell(orderProduct);
+    private Behavior<FridgeCommand> setOrderRef(SetOrderRef setOrderRef) {
+        this.orderRef = setOrderRef.orderRef();
 
         return Behaviors.same();
     }
 
-    private Behavior<FridgeCommand> receiveProduct(ReceiveProduct receiveProduct) {
-        if (!itemQuantities.containsKey(receiveProduct.itemName())) {
-            itemQuantities.put(receiveProduct.itemName(), receiveProduct.quantity());
+    private Behavior<FridgeCommand> onOrderProduct(OrderProduct orderProduct) {
+        if (orderRef != null) {
+            orderRef.tell(orderProduct);
         } else {
-            itemQuantities.compute(receiveProduct.itemName(), (k, currentQuantity) -> currentQuantity + receiveProduct.quantity());
+            getContext().getLog().info("No order ref available");
+        }
+
+        return Behaviors.same();
+    }
+
+    private Behavior<FridgeCommand> receiveProduct(ReceiveProducts receiveProducts) {
+        for (Map.Entry<String, Integer> entry : itemQuantities.entrySet()) {
+            if (!itemQuantities.containsKey(entry.getKey())) {
+                itemQuantities.put(entry.getKey(), entry.getValue());
+            } else {
+                itemQuantities.compute(entry.getKey(), (k, currentQuantity) -> currentQuantity + entry.getValue());
+            }
         }
 
         return Behaviors.same();
@@ -104,6 +118,6 @@ public class FridgeActor extends AbstractBehavior<FridgeCommand> {
     }
 
     private void restockProduct(String name, int quantity) {
-        orderRef.tell(new OrderProduct(name, quantity));
+        orderRef.tell(new OrderProduct(Map.of(name, quantity)));
     }
 }
