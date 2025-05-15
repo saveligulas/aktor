@@ -140,12 +140,9 @@
         <span id="current-time">00:00:00</span>
     </div>
 
-    <!-- Status Board (Top Half) -->
     <div class="status-board" id="status-board">
-        <!-- This will be populated dynamically with blackboard values -->
     </div>
 
-    <!-- Terminal (Bottom Half) -->
     <div class="terminal">
         <div class="terminal-output" id="terminal-output">
             // Terminal initialized...
@@ -162,7 +159,6 @@
 </div>
 
 <script>
-    // Update the current time
     function updateTime() {
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
@@ -171,7 +167,6 @@
         document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
     }
 
-    // Start time and update uptime
     const startTime = new Date();
     function updateUptime() {
         const now = new Date();
@@ -179,8 +174,7 @@
         const hours = Math.floor(diff / 3600).toString().padStart(2, '0');
         const minutes = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
         const seconds = Math.floor(diff % 60).toString().padStart(2, '0');
-        
-        // Try to find an uptime element to update
+
         const uptimeElements = document.querySelectorAll('.key-value-pair .key');
         for (const keyElement of uptimeElements) {
             if (keyElement.textContent.includes('UPTIME')) {
@@ -193,12 +187,10 @@
         }
     }
 
-    // Update time every second
     setInterval(updateTime, 1000);
     setInterval(updateUptime, 1000);
     updateTime();
 
-    // Fetch blackboard values from the API
     function fetchBlackboardValues() {
         fetch('/api/blackboard-values')
             .then(response => {
@@ -212,21 +204,18 @@
             })
             .catch(error => {
                 console.error('Error fetching blackboard values:', error);
-                // Add a message to the terminal output
                 const terminalOutput = document.getElementById('terminal-output');
                 terminalOutput.innerHTML += `\n// Error connecting to API: ${error.message}`;
                 terminalOutput.scrollTop = terminalOutput.scrollHeight;
             });
     }
 
-    // Update the status board with blackboard values
     function updateStatusBoard(data) {
         const statusBoard = document.getElementById('status-board');
-        statusBoard.innerHTML = ''; // Clear existing content
+        statusBoard.innerHTML = '';
         
-        console.log('Received data:', data); // Log the data for debugging
-        
-        // Add each blackboard value as a key-value pair
+        console.log('Received data:', data);
+
         for (const [key, value] of Object.entries(data)) {
             const keyValuePair = document.createElement('div');
             keyValuePair.className = 'key-value-pair';
@@ -242,14 +231,13 @@
             keyValuePair.appendChild(keyElement);
             keyValuePair.appendChild(valueElement);
             statusBoard.appendChild(keyValuePair);
-            
-            // Log each key-value pair for debugging
+
             console.log(`Added key-value pair: ${key} = ${value}`);
         }
     }
 
     function fetchTerminalMessages() {
-        fetch('/api/terminal-messages')
+        fetch('/api/terminal-messages?' + new Date().getTime()) // Add cache-busting query param
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Server responded with status ${response.status}`);
@@ -261,55 +249,46 @@
             })
             .catch(error => {
                 console.error('Error fetching messages:', error);
-                // Add a message to the terminal output
-                const terminalOutput = document.getElementById('terminal-output');
-                terminalOutput.innerHTML += `\n// Error connecting to API: ${error.message}`;
-                terminalOutput.scrollTop = terminalOutput.scrollHeight;
             });
     }
 
+    const displayedMessageIds = new Set();
+
     function updateTerminalMessages(data) {
         const terminalOutput = document.getElementById('terminal-output');
-        console.log('Received data:', data);
+        console.log('Received terminal data with ' + data.messages.length + ' messages');
 
-        if (data.messages && Array.isArray(data.messages)) {
+        if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+            let newMessagesAdded = false;
+
             data.messages.forEach(message => {
-                terminalOutput.innerHTML += "\n" + message;
-                terminalOutput.scrollTop = terminalOutput.scrollHeight;
+                const idMatch = message.match(/^\[(\d+)\]/);
+                if (idMatch) {
+                    const messageId = idMatch[1];
 
-                console.log(`Added message: ${message}`);
+                    if (!displayedMessageIds.has(messageId)) {
+                        displayedMessageIds.add(messageId);
+                        terminalOutput.innerHTML += "\n" + message;
+                        newMessagesAdded = true;
+                    }
+                } else {
+                    terminalOutput.innerHTML += "\n" + message;
+                    newMessagesAdded = true;
+                }
             });
-        } else {
-            for (const [key, value] of Object.entries(data)) {
-                const keyValuePair = document.createElement('div');
-                keyValuePair.className = 'key-value-pair';
 
-                const keyElement = document.createElement('span');
-                keyElement.className = 'key';
-                keyElement.textContent = key;
-
-                const valueElement = document.createElement('span');
-                valueElement.className = 'value';
-                valueElement.textContent = value;
-
-                keyValuePair.appendChild(keyElement);
-                keyValuePair.appendChild(valueElement);
-                statusBoard.appendChild(keyValuePair);
-
-                console.log(`Added key-value pair: ${key} = ${value}`);
+            if (newMessagesAdded) {
+                terminalOutput.scrollTop = terminalOutput.scrollHeight;
             }
         }
     }
 
-    // Fetch blackboard values every 2 seconds
-    setInterval(fetchBlackboardValues, 2000);
-    setInterval(fetchTerminalMessages, 2000);
-    
-    // Initial fetch
-    fetchBlackboardValues();
     fetchTerminalMessages();
+    setInterval(fetchTerminalMessages, 3000);
 
-    // Handle command input
+    setInterval(fetchBlackboardValues, 2000);
+    fetchBlackboardValues();
+
     const commandInput = document.getElementById('command-input');
     const terminalOutput = document.getElementById('terminal-output');
 
@@ -317,16 +296,12 @@
         if (event.key === 'Enter') {
             const command = commandInput.value.trim();
 
-            // Add the command to the terminal output
             terminalOutput.innerHTML += `\nroot@system:~$ ${command}\n`;
 
-            // Process the command
             processCommand(command);
 
-            // Clear the input field
             commandInput.value = '';
 
-            // Scroll to the bottom of the terminal output
             terminalOutput.scrollTop = terminalOutput.scrollHeight;
         }
     });

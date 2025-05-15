@@ -6,6 +6,7 @@ import akka.http.javadsl.Http;
 import akka.http.javadsl.model.ContentTypes;
 import akka.http.javadsl.model.HttpEntities;
 import akka.http.javadsl.model.StatusCodes;
+import akka.http.javadsl.model.headers.RawHeader;
 import akka.http.javadsl.server.AllDirectives;
 import akka.http.javadsl.server.Route;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -15,6 +16,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import fhv.aktor.akka.webhook.WebhookActor;
 import fhv.aktor.akka.webhook.WebhookCommand;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,16 +43,8 @@ public class UIServer extends AllDirectives {
 
                 path(segment("api").slash("blackboard-values"), () ->
                         get(() -> {
-                            // Get the latest values from the static holder
                             Map<String, String> values = WebhookActor.getValuesSnapshot();
-
-                            system.log().info("Sending values to client: {}", values);
-                            for (Map.Entry<String, String> entry : values.entrySet()) {
-                                system.log().info("  {} = {}", entry.getKey(), entry.getValue());
-                            }
-
                             String jsonResponse = createJsonResponse(values);
-                            system.log().info("JSON response: {}", jsonResponse);
                             return complete(HttpEntities.create(
                                     ContentTypes.APPLICATION_JSON, jsonResponse));
                         })),
@@ -59,35 +53,40 @@ public class UIServer extends AllDirectives {
                         get(() -> {
                             List<String> messages = WebhookActor.getMessagesSnapshot();
 
-                            // Create a JSON response with messages field containing the list
                             try {
                                 ObjectMapper mapper = new ObjectMapper();
                                 ObjectNode rootNode = mapper.createObjectNode();
                                 ArrayNode messagesArray = rootNode.putArray("messages");
 
-                                // Add each message to the array
                                 for (String message : messages) {
                                     messagesArray.add(message);
                                 }
 
+                                System.out.println("API sending " + messages.size() + " messages to client");
+
                                 String jsonResponse = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(rootNode);
-                                return complete(HttpEntities.create(
-                                        ContentTypes.APPLICATION_JSON, jsonResponse));
+
+                                return respondWithHeaders(
+                                        Arrays.asList(
+                                                RawHeader.create("Cache-Control", "no-cache, no-store, must-revalidate"),
+                                                RawHeader.create("Pragma", "no-cache"),
+                                                RawHeader.create("Expires", "0")
+                                        ),
+                                        () -> complete(HttpEntities.create(ContentTypes.APPLICATION_JSON, jsonResponse))
+                                );
                             } catch (JsonProcessingException e) {
                                 system.log().error("Error creating JSON response", e);
                                 return complete(StatusCodes.INTERNAL_SERVER_ERROR, "Error generating JSON response");
                             }
-                        })),
+                        })
+                ),
 
-                // Debug endpoint to show the current values
                 path(segment("api").slash("debug"), () ->
                         get(() -> {
                             Map<String, String> values = WebhookActor.getValuesSnapshot();
 
-                            // Create a detailed debug view
                             StringBuilder sb = new StringBuilder("<html><body><h1>Debug Values</h1>");
 
-                            // Add the current values table
                             sb.append("<h2>Current Values (Direct from Map)</h2>");
                             sb.append("<table border='1'>");
                             sb.append("<tr><th>Key</th><th>Value</th></tr>");
@@ -97,7 +96,6 @@ public class UIServer extends AllDirectives {
                             }
                             sb.append("</table>");
 
-                            // Show the ValuesHolder content
                             sb.append("<h2>JSON Representation</h2>");
 
                             try {
@@ -107,7 +105,6 @@ public class UIServer extends AllDirectives {
                                 sb.append("<p>Error generating JSON: ").append(e.getMessage()).append("</p>");
                             }
 
-                            // Add refresh control
                             sb.append("<p><a href='/api/debug'>Refresh</a></p>");
                             sb.append("</body></html>");
 
@@ -115,11 +112,9 @@ public class UIServer extends AllDirectives {
                                     ContentTypes.TEXT_HTML_UTF8, sb.toString()));
                         })),
 
-                // Command endpoint for the terminal
                 path(segment("command"), () ->
                         get(() ->
                                 parameter("input", input -> {
-                                    // Forward the command to the parser
                                     commandParser.tell(new TerminalCommand(input));
                                     return complete("Command sent: " + input);
                                 })
@@ -130,7 +125,6 @@ public class UIServer extends AllDirectives {
     private String createJsonResponse(Map<String, String> values) {
         try {
             ObjectMapper mapper = new ObjectMapper();
-            // Convert null values to "UNDEFINED" string as in the original implementation
             Map<String, String> sanitizedValues = new HashMap<>();
             for (Map.Entry<String, String> entry : values.entrySet()) {
                 sanitizedValues.put(entry.getKey(), entry.getValue() == null ? "UNDEFINED" : entry.getValue());
@@ -138,7 +132,7 @@ public class UIServer extends AllDirectives {
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sanitizedValues);
         } catch (JsonProcessingException e) {
             system.log().error("Error creating JSON response", e);
-            return "{}"; // Return empty JSON object in case of error
+            return "{}";
         }
     }
     

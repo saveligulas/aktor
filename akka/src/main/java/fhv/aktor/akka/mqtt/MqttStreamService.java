@@ -49,8 +49,6 @@ public class MqttStreamService {
             String topic = message.topic();
             String payload = message.payload().utf8String();
 
-            system.log().info("Received message on topic: {}, payload: {}", topic, payload);
-
             try {
                 JsonNode jsonNode = objectMapper.readTree(payload);
 
@@ -59,7 +57,6 @@ public class MqttStreamService {
                         String tempStr = jsonNode.get("temperature").asText();
                         double temp = Double.parseDouble(tempStr);
                         temperatureActor.tell(new UpdateTemperature(temp));
-                        system.log().info("Sent temperature reading: {}", temp);
                     } catch (Exception e) {
                         system.log().warn("Invalid temperature payload: {}", payload, e);
                     }
@@ -67,7 +64,6 @@ public class MqttStreamService {
                     try {
                         String condition = jsonNode.get("condition").asText();
                         weatherActor.tell(new UpdateWeather(condition));
-                        system.log().info("Sent weather condition: {}", condition);
                     } catch (Exception e) {
                         system.log().warn("Invalid condition payload: {}", payload, e);
                     }

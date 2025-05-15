@@ -15,9 +15,10 @@ import fhv.aktor.akka.message.DisplayMessage;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class WebhookActor extends AbstractBehavior<WebhookCommand> {
     private final ActorRef<BlackboardCommand> blackboardRef;
@@ -25,13 +26,13 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
     private final TimerScheduler<WebhookCommand> timers;
 
     private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5);
-    
+
     public static Behavior<WebhookCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
-        return Behaviors.setup(context -> 
-                Behaviors.withTimers(timers -> 
+        return Behaviors.setup(context ->
+                Behaviors.withTimers(timers ->
                         new WebhookActor(context, blackboardRef, timers)));
     }
-    
+
     private WebhookActor(ActorContext<WebhookCommand> context, ActorRef<BlackboardCommand> blackboardRef, TimerScheduler<WebhookCommand> timers) {
         super(context);
         this.blackboardRef = blackboardRef;
@@ -46,10 +47,10 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
         BlackboardValuesHolder.updateValues(new ConcurrentHashMap<>(currentValues));
 
         getContext().getSelf().tell(new FetchBlackboardValues());
-        
+
         getContext().getLog().info("WebhookActor started - will fetch blackboard values every {} seconds", REFRESH_INTERVAL.getSeconds());
     }
-    
+
     @Override
     public Receive<WebhookCommand> createReceive() {
         return newReceiveBuilder()
@@ -62,7 +63,7 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
 
     private Behavior<WebhookCommand> onMessage(DisplayMessage basicMessage) {
         MessagesValuesHolder.addMessage(basicMessage.message());
-        
+
         return Behaviors.same();
     }
 
@@ -82,7 +83,7 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
         return Behaviors.same();
     }
 
-    
+
     private Behavior<WebhookCommand> onGetCurrentValues(GetCurrentValues command) {
         Map<String, String> valuesToSend = new ConcurrentHashMap<>(currentValues);
         BlackboardValuesHolder.updateValues(valuesToSend);
@@ -90,7 +91,7 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
 
         return Behaviors.same();
     }
-    
+
     private void fetchFieldValue(String fieldKey) {
         blackboardRef.tell(new QueryBlackboard<>(fieldKey, new WebhookFetchResponse(), getContext().getSelf()));
     }
@@ -100,19 +101,17 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
     }
 
     public static List<String> getMessagesSnapshot() {
-        List<String> messages = MessagesValuesHolder.getMessages().stream().toList();
-        MessagesValuesHolder.clear();
-
+        List<String> messages = MessagesValuesHolder.getMessages();
         return messages;
     }
 
     private static class BlackboardValuesHolder {
         private static final Map<String, String> currentValues = new ConcurrentHashMap<>();
-        
+
         static Map<String, String> getValues() {
             return new ConcurrentHashMap<>(currentValues);
         }
-        
+
         static void updateValues(Map<String, String> values) {
             currentValues.clear();
             currentValues.putAll(values);
@@ -120,18 +119,64 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
     }
 
     private static class MessagesValuesHolder {
-        private static final Queue<String> currentMessages = new ConcurrentLinkedQueue<>(); // more efficient than CopyOnWriteArrayList
+        private static final List<TimestampedMessage> messageBuffer = new CopyOnWriteArrayList<>();
+        private static final Object lockObject = new Object();
+        private static final AtomicInteger messageCounter = new AtomicInteger(0);
 
-        static Queue<String> getMessages() {
-            return new ConcurrentLinkedQueue<>(currentMessages);
-        }
+        private static final int MAX_BUFFER_SIZE = 1000;
+        private static final long MESSAGE_RETENTION_TIME_MS = 10000;
 
-        static void clear() {
-            currentMessages.clear();
+        static class TimestampedMessage {
+            final String message;
+            final long timestamp;
+            final int id;
+
+            TimestampedMessage(String message, int id) {
+                this.message = message;
+                this.timestamp = System.currentTimeMillis();
+                this.id = id;
+            }
         }
 
         static void addMessage(String message) {
-            currentMessages.add(message);
+            int id = messageCounter.incrementAndGet();
+            TimestampedMessage timestampedMessage = new TimestampedMessage(message, id);
+            messageBuffer.add(timestampedMessage);
+
+            System.out.println("Added message: [" + id + "] " + message);
+
+            if (id % 10 == 0 || messageBuffer.size() > MAX_BUFFER_SIZE) {
+                cleanupOldMessages();
+            }
+        }
+
+        private static void cleanupOldMessages() {
+            long now = System.currentTimeMillis();
+            long cutoffTime = now - MESSAGE_RETENTION_TIME_MS;
+
+            synchronized (lockObject) {
+                int sizeBefore = messageBuffer.size();
+                messageBuffer.removeIf(msg -> msg.timestamp < cutoffTime);
+                int removed = sizeBefore - messageBuffer.size();
+
+                if (removed > 0) {
+                    System.out.println("Cleaned up " + removed + " old messages");
+                }
+
+                while (messageBuffer.size() > MAX_BUFFER_SIZE) {
+                    messageBuffer.remove(0);
+                }
+            }
+        }
+
+        static List<String> getMessages() {
+            return messageBuffer.stream()
+                    .map(tm -> "[" + tm.id + "] " + tm.message)
+                    .collect(Collectors.toList());
+        }
+
+        static int getBufferSize() {
+            return messageBuffer.size();
         }
     }
 }

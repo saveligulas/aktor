@@ -28,8 +28,9 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.4.14")
 }
 
-
-
+application {
+    mainClass.set("fhv.aktor.akka.Main")
+}
 
 tasks.test {
     useJUnitPlatform()

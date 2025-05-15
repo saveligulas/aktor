@@ -68,8 +68,6 @@ public class HomeAutomationActor extends AbstractBehavior<Void> {
         ActorRef<UserCommand> parser = context.spawn(CommandParser.create(mediaStation, fridge, webhookActor.narrow()), "homeAutomationCommandParser");
         commandServer.start(getContext().getSystem(), parser);
 
-
-
         ActorRef<MessageCommand> messageCommandRef = context.spawn(MessageActor.create(webhookActor.narrow()), "messageCommand");
         LoggingProvider.setMessageRef(messageCommandRef);
 

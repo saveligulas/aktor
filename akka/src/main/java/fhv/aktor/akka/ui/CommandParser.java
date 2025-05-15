@@ -53,16 +53,17 @@ public class CommandParser extends AbstractBehavior<UserCommand> {
     }
 
     private void fridgeViewOrders(String[] inputParts) {
-        fridge.tell(new QueryOrders(getContext().getSelf().narrow()));
         logger.info("Processed Fridge orders Command");
+        fridge.tell(new QueryOrders(getContext().getSelf().narrow()));
     }
 
     private void fridgeView(String[] inputParts) {
-        fridge.tell(new QueryProducts(getContext().getSelf().narrow()));
         logger.info("Processed Fridge view Command");
+        fridge.tell(new QueryProducts(getContext().getSelf().narrow()));
     }
 
     private void fridgeConsume(String[] inputParts) {
+        logger.info("Processed Fridge consume Command");
         String productName = inputParts[1];
         int quantity = Integer.parseInt(inputParts[2]);
 
@@ -70,11 +71,13 @@ public class CommandParser extends AbstractBehavior<UserCommand> {
     }
 
     private void routeToMediaStation(String[] inputParts) {
+        logger.info("Processed Media Station play Command");
         mediaStation.tell(new PlayMovie() {
         });
     }
 
     private void routeToFridge(String[] inputParts) {
+        logger.info("Processed Fridge order Command");
         Map<String, Integer> productQuantities = new HashMap<>();
 
         for (int i = 1; i < inputParts.length; i += 2) {

@@ -12,7 +12,6 @@ import fhv.aktor.akka.command.blackboard.observe.ObserveField;
 import fhv.aktor.akka.command.blackboard.post.PostValue;
 import fhv.aktor.akka.command.blackboard.query.QueryBlackboard;
 import fhv.aktor.akka.command.blackboard.query.QueryResponseCommand;
-import fhv.aktor.akka.commons.StringFormatter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,19 +54,14 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
     }
 
     private <C extends QueryResponseCommand<V>, V> Behavior<BlackboardCommand> respondToQuery(QueryBlackboard<C, V> queryBlackboard) {
-        getContext().getLog().info("Handling QueryBlackboard for key: {}", queryBlackboard.key());
-
         C response = queryBlackboard.command();
         Object value = board.get(queryBlackboard.key());
-        getContext().getLog().info("Query for key: {} (value={})", queryBlackboard.key(), value);
 
         if (value != null && response.getValueType().isInstance(value)) {
             V typed = response.getValueType().cast(value);
             response.build(queryBlackboard.key(), typed);
-            getContext().getLog().info("Retrieved value for query: {} -> {}", queryBlackboard.key(), value);
         } else {
             response.build(queryBlackboard.key(), null);
-            getContext().getLog().info("No value or incompatible type for key: {}", queryBlackboard.key());
         }
 
         queryBlackboard.replyTo().tell(response);
@@ -77,8 +71,6 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
     private Behavior<BlackboardCommand> onPostValue(PostValue postValue) {
         Object newValue = postValue.value();
         Object oldValue = this.board.put(postValue.key(), postValue.value());
-        getContext().getLog().info("Post Value and key: {} | {}", postValue.value(), postValue.key());
-        getContext().getLog().debug("Board: {}", StringFormatter.formatMapForConsole(board));
 
         List<ObserveField<?, ?, ?, ?>> observers = fieldObservers.get(postValue.key());
         if (observers != null && !observers.isEmpty()) {
