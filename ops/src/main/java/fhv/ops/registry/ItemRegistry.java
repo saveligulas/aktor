@@ -1,4 +1,4 @@
-package fhv.ops.item;
+package fhv.ops.registry;
 
 import java.util.HashMap;
 import java.util.Map;

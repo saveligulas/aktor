@@ -1,20 +1,17 @@
-package fhv.ops;
+package fhv.ops.actor;
 
+import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import fhv.ops.item.ItemRegistry;
 import fhv.ops.order.OrderCommand;
+import fhv.ops.order.OrderHandlerActor;
 import fhv.ops.order.OrderProduct;
-import fhv.ops.order.Product;
-import fhv.ops.order.Receipt;
+import fhv.ops.registry.ItemRegistry;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.UUID;
 
 public class OrderProcessorActor extends AbstractBehavior<OrderCommand> {
     private final ItemRegistry itemRegistry;
@@ -28,7 +25,7 @@ public class OrderProcessorActor extends AbstractBehavior<OrderCommand> {
     }
 
     // Factory method tho create the actor and gives it access to the ActorContext
-    public static Behavior<OrderCommand> qcreate(ItemRegistry itemRegistry) {
+    public static Behavior<OrderCommand> create(ItemRegistry itemRegistry) {
         return Behaviors.setup(context -> new OrderProcessorActor(context, itemRegistry));
     }
 
@@ -38,22 +35,19 @@ public class OrderProcessorActor extends AbstractBehavior<OrderCommand> {
     }
 
     private Behavior<OrderCommand> onOrder(OrderProduct command) {
-        getContext().getLog().info("Processing Order: {}\n", command.productAndAmount());
-        List<Product> products = new ArrayList<>();
-        double totalPrice = 0;
+        getContext().getLog().info("Received Order: {}, spawning handler", command.productAndAmount());
 
-        for (Map.Entry<String, Integer> item : command.productAndAmount().entrySet()) {
-            String itemName = item.getKey();
-            int amount = item.getValue();
-            double unitPrice = itemRegistry.getPrice(item.getKey());
-            double totalItemPrice = unitPrice * amount;
+        // Create a unique name for the handler
+        String handlerName = "order-handler-" + UUID.randomUUID();
 
-            products.add(new Product(itemName, amount, unitPrice, totalItemPrice));
-            totalPrice += totalItemPrice;
-        }
+        // Spawn the handler actor as a child
+        ActorRef<OrderProduct> handler = getContext().spawn(
+                OrderHandlerActor.create(itemRegistry),
+                handlerName
+        );
 
-        long timestamp = Instant.now().getEpochSecond();
-        Receipt receipt = new Receipt(products, totalPrice, timestamp);
+        // Forward the order to the handler
+        handler.tell(command);
 
         return Behaviors.same();
     }
