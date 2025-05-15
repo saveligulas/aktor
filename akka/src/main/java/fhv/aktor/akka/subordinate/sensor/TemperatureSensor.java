@@ -16,21 +16,25 @@ import fhv.aktor.akka.receiver.ReceiveTemperatureChange;
 import java.time.Duration;
 import java.util.Random;
 
-public class TemperatureSensor extends AbstractBlackboardSubordinateActor<TemperatureSensorCommand> implements ReceiveTemperatureChange {
-    private double temperature; //TODO: REMOVE
+public class TemperatureSensor extends AbstractBlackboardSubordinateActor<TemperatureSensorCommand> {
     private final Random random;
+    private final boolean useInternalSimulation;
 
-    public static Behavior<TemperatureSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
+    public static Behavior<TemperatureSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
         return Behaviors.setup(ctx -> {
-            TemperatureSensor temperatureSensor = new TemperatureSensor(ctx, blackboardRef);
-            ctx.getSelf().tell(new UpdateTemperature());
+            TemperatureSensor temperatureSensor = new TemperatureSensor(ctx, blackboardRef, useInternalSimulation);
+
+            if (useInternalSimulation) {
+                ctx.getSelf().tell(new UpdateTemperature(0));
+            }
+
             return temperatureSensor;
         });
     }
 
-    private TemperatureSensor(ActorContext<TemperatureSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef) {
+    private TemperatureSensor(ActorContext<TemperatureSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
         super(context, blackboardRef);
-
+        this.useInternalSimulation = useInternalSimulation;
         this.random = new Random();
     }
 
@@ -42,23 +46,16 @@ public class TemperatureSensor extends AbstractBlackboardSubordinateActor<Temper
     }
 
     private Behavior<TemperatureSensorCommand> onTemperatureUpdate(UpdateTemperature updateTemperature) {
-        Double newTemperature = random.nextDouble(10, 30);
-        // Post to blackboard
-        blackboardRef.tell(new PostValue(newTemperature, BlackboardField.TEMPERATURE.key()));
+        blackboardRef.tell(new PostValue(updateTemperature.temperature(), BlackboardField.TEMPERATURE.key()));
 
-        // Schedule next update in 10 seconds
-        getContext().scheduleOnce(
-                Duration.ofSeconds(10),
-                getContext().getSelf(),
-                new UpdateTemperature()
-        );
+        if (useInternalSimulation) {
+            getContext().scheduleOnce(
+                    Duration.ofSeconds(5),
+                    getContext().getSelf(),
+                    new UpdateTemperature(random.nextDouble(0, 40))
+            );
+        }
 
         return Behaviors.same();
-    }
-
-    @Override
-    public void receive(Double temperature) {
-        this.temperature = temperature;
-        this.blackboardRef.tell(new PostValue(temperature, BlackboardField.TEMPERATURE.name()));
     }
 }

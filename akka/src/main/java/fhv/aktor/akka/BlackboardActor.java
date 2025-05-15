@@ -10,7 +10,6 @@ import fhv.aktor.akka.command.blackboard.BlackboardRegistry;
 import fhv.aktor.akka.command.blackboard.observe.Condition;
 import fhv.aktor.akka.command.blackboard.observe.ObserveField;
 import fhv.aktor.akka.command.blackboard.post.PostValue;
-import fhv.aktor.akka.command.blackboard.query.Query;
 import fhv.aktor.akka.command.blackboard.query.QueryBlackboard;
 import fhv.aktor.akka.command.blackboard.query.QueryResponseCommand;
 import fhv.aktor.akka.commons.StringFormatter;
@@ -39,45 +38,46 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
         return newReceiveBuilder()
                 .onMessage(ObserveField.class, this::registerFieldObserver)
                 .onMessage(PostValue.class, this::onPostValue)
-                .onMessage(QueryBlackboard.class, this::respondToQuery) // TODO: fix
+                .onMessage(QueryBlackboard.class, this::respondToQuery)
                 .build();
     }
 
     private Behavior<BlackboardCommand> registerFieldObserver(ObserveField<?, ?, ?, ?> fieldObserver) {
-        registerObserver(fieldObserver);
-        return Behaviors.same();
-    }
-
-
-    private void registerObserver(ObserveField<?, ?, ?, ?> fieldObserver) {
         String key = fieldObserver.key();
         Class<?> observedValueClass = fieldObserver.getObservedValueClass();
         if (!registry.isValidKeyAndType(key, observedValueClass)) {
             throw new IllegalStateException("Observer is observing a non registered Field");
         }
         this.fieldObservers.computeIfAbsent(fieldObserver.key(), k -> new ArrayList<>()).add(fieldObserver); // TODO: implement registry to check observers for type safety
+
+        return Behaviors.same();
     }
 
-    private <C extends QueryResponseCommand<V>, V> Behavior<BlackboardCommand> respondToQuery(Query<C, V> queryBlackboard) {
+    private <C extends QueryResponseCommand<V>, V> Behavior<BlackboardCommand> respondToQuery(QueryBlackboard<C, V> queryBlackboard) {
+        getContext().getLog().info("Handling QueryBlackboard for key: {}", queryBlackboard.key());
+        
         C response = queryBlackboard.command();
         Object value = board.get(queryBlackboard.key());
-        System.out.println("Query for key: " + queryBlackboard.key());
+        getContext().getLog().info("Query for key: {} (value={})", queryBlackboard.key(), value);
 
-        if (response.getValueType().isInstance(value)) {
+        if (value != null && response.getValueType().isInstance(value)) {
             V typed = response.getValueType().cast(value);
-            response.fromValue(typed);
-            System.out.println("Retrieved value for query: " + value);
-            queryBlackboard.replyTo().tell(response);
+            response.build(queryBlackboard.key(), typed);
+            getContext().getLog().info("Retrieved value for query: {} -> {}", queryBlackboard.key(), value);
+        } else {
+            response.build(queryBlackboard.key(), null);
+            getContext().getLog().info("No value or incompatible type for key: {}", queryBlackboard.key());
         }
-
+        
+        queryBlackboard.replyTo().tell(response);
         return Behaviors.same();
     }
 
     private Behavior<BlackboardCommand> onPostValue(PostValue postValue) {
         Object newValue = postValue.value();
         Object oldValue = this.board.put(postValue.key(),  postValue.value());
-        System.out.println("Post Value and key: " + postValue.value() + " | " + postValue.key());
-        System.out.println(("Board: " + StringFormatter.formatMapForConsole(board)));
+        getContext().getLog().info("Post Value and key: {} | {}", postValue.value(), postValue.key());
+        getContext().getLog().debug("Board: {}", StringFormatter.formatMapForConsole(board));
 
         List<ObserveField<?, ?, ?, ?>> observers = fieldObservers.get(postValue.key());
         if (observers != null && !observers.isEmpty()) {
