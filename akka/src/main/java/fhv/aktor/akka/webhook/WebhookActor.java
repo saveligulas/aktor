@@ -10,17 +10,21 @@ import akka.actor.typed.javadsl.TimerScheduler;
 import fhv.aktor.akka.command.blackboard.BlackboardCommand;
 import fhv.aktor.akka.command.blackboard.query.QueryBlackboard;
 import fhv.aktor.akka.commons.BlackboardField;
+import fhv.aktor.akka.message.DisplayMessage;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class WebhookActor extends AbstractBehavior<WebhookCommand> {
     private final ActorRef<BlackboardCommand> blackboardRef;
     private final Map<String, String> currentValues = new ConcurrentHashMap<>();
     private final TimerScheduler<WebhookCommand> timers;
 
-    private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(2);
+    private static final Duration REFRESH_INTERVAL = Duration.ofSeconds(5);
     
     public static Behavior<WebhookCommand> create(ActorRef<BlackboardCommand> blackboardRef) {
         return Behaviors.setup(context -> 
@@ -39,7 +43,7 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
             currentValues.put(field.key(), "UNDEFINED");
         }
 
-        ValuesHolder.updateValues(new ConcurrentHashMap<>(currentValues));
+        BlackboardValuesHolder.updateValues(new ConcurrentHashMap<>(currentValues));
 
         getContext().getSelf().tell(new FetchBlackboardValues());
         
@@ -49,43 +53,60 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
     @Override
     public Receive<WebhookCommand> createReceive() {
         return newReceiveBuilder()
+                .onMessage(DisplayMessage.class, this::onMessage)
                 .onMessage(FetchBlackboardValues.class, this::onFetchBlackboardValues)
                 .onMessage(WebhookFetchResponse.class, this::onFetchResponse)
                 .onMessage(GetCurrentValues.class, this::onGetCurrentValues)
                 .build();
     }
 
+    private Behavior<WebhookCommand> onMessage(DisplayMessage basicMessage) {
+        MessagesValuesHolder.addMessage(basicMessage.message());
+        
+        return Behaviors.same();
+    }
+
     private Behavior<WebhookCommand> onFetchResponse(WebhookFetchResponse command) {
         currentValues.put(command.key(), command.value());
-        ValuesHolder.updateValues(new ConcurrentHashMap<>(currentValues));
+        BlackboardValuesHolder.updateValues(new ConcurrentHashMap<>(currentValues));
         getContext().getLog().debug("Updated value for {}: {}", command.key(), command.value());
-        return this;
+
+        return Behaviors.same();
     }
 
     private Behavior<WebhookCommand> onFetchBlackboardValues(FetchBlackboardValues command) {
         for (BlackboardField field : BlackboardField.values()) {
             fetchFieldValue(field.key());
         }
-        return this;
+
+        return Behaviors.same();
     }
 
     
     private Behavior<WebhookCommand> onGetCurrentValues(GetCurrentValues command) {
         Map<String, String> valuesToSend = new ConcurrentHashMap<>(currentValues);
-        ValuesHolder.updateValues(valuesToSend);
+        BlackboardValuesHolder.updateValues(valuesToSend);
         command.replyTo.tell(valuesToSend);
-        return this;
+
+        return Behaviors.same();
     }
     
     private void fetchFieldValue(String fieldKey) {
         blackboardRef.tell(new QueryBlackboard<>(fieldKey, new WebhookFetchResponse(), getContext().getSelf()));
     }
 
-    public static Map<String, String> getValuesSnapshot(ActorRef<WebhookCommand> webhookActor) {
-        return ValuesHolder.getValues();
+    public static Map<String, String> getValuesSnapshot() {
+        return BlackboardValuesHolder.getValues();
     }
 
-    private static class ValuesHolder {
+    public static List<String> getMessagesSnapshot() {
+        List<String> messages = MessagesValuesHolder.getMessages().stream().toList();
+        MessagesValuesHolder.clear();
+
+        return messages;
+    }
+
+    private static class BlackboardValuesHolder {
         private static final Map<String, String> currentValues = new ConcurrentHashMap<>();
         
         static Map<String, String> getValues() {
@@ -95,6 +116,22 @@ public class WebhookActor extends AbstractBehavior<WebhookCommand> {
         static void updateValues(Map<String, String> values) {
             currentValues.clear();
             currentValues.putAll(values);
+        }
+    }
+
+    private static class MessagesValuesHolder {
+        private static final Queue<String> currentMessages = new ConcurrentLinkedQueue<>(); // more efficient than CopyOnWriteArrayList
+
+        static Queue<String> getMessages() {
+            return new ConcurrentLinkedQueue<>(currentMessages);
+        }
+
+        static void clear() {
+            currentMessages.clear();
+        }
+
+        static void addMessage(String message) {
+            currentMessages.add(message);
         }
     }
 }

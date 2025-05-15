@@ -53,6 +53,8 @@ public class OrderHandlerActor extends AbstractBehavior<OrderProduct> {
         long timestamp = Instant.now().getEpochSecond();
         Receipt receipt = new Receipt(products, totalPrice, timestamp);
 
+        command.replyTo().tell(receipt);
+
         getContext().getLog().info("Order processed, handler terminating");
         return Behaviors.stopped();
     }

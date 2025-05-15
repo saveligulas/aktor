@@ -15,6 +15,7 @@ import fhv.aktor.akka.command.blackboard.query.QueryResponseCommand;
 import fhv.aktor.akka.commons.StringFormatter;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,7 +43,7 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
                 .build();
     }
 
-    private Behavior<BlackboardCommand> registerFieldObserver(ObserveField<?, ?, ?, ?> fieldObserver) {
+    private Behavior<BlackboardCommand> registerFieldObserver(ObserveField<?, ?, ?, ?> fieldObserver) { // TODO: verify secondary conditions
         String key = fieldObserver.key();
         Class<?> observedValueClass = fieldObserver.getObservedValueClass();
         if (!registry.isValidKeyAndType(key, observedValueClass)) {
@@ -94,6 +95,12 @@ public class BlackboardActor extends AbstractBehavior<BlackboardCommand> {
             if (observedClass.isInstance(newValue) && (oldValue == null || observedClass.isInstance(oldValue))) {
                 // safe due to previous check
                 Condition condition = fieldObserver.getCondition();
+                if (condition.hasAdditionalConditionFields()) {
+                    getContext().getLog().debug("Saveli Checking secondary conditions for key");
+                    if (!condition.secondaryConditionsMet(Collections.unmodifiableMap(board))) {
+                        return;
+                    }
+                }
                 condition.doCheck(observedClass.cast(newValue), observedClass.cast(oldValue));
             }
         }

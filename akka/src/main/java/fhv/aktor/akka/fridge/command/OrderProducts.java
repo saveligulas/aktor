@@ -5,5 +5,5 @@ import fhv.aktor.akka.order.OrderCommand;
 
 import java.util.Map;
 
-public record OrderProduct(Map<String, Integer> productQuantities) implements FridgeCommand, OrderCommand {
+public record OrderProducts(Map<String, Integer> productQuantities) implements FridgeCommand, OrderCommand {
 }

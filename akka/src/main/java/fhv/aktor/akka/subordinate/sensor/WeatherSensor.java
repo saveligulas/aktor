@@ -20,17 +20,18 @@ import java.util.Random;
 public class WeatherSensor extends AbstractBlackboardSubordinateActor<WeatherSensorCommand> {
     private final Random random;
     private final boolean useInternalSimulation;
-    private WeatherConditionAdapter weatherConditionAdapter;
+    private final WeatherConditionAdapter weatherConditionAdapter;
 
-    private WeatherSensor(ActorContext<WeatherSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
+    private WeatherSensor(ActorContext<WeatherSensorCommand> context, ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation, WeatherConditionAdapter weatherConditionAdapter) {
         super(context, blackboardRef);
         this.useInternalSimulation = useInternalSimulation;
+        this.weatherConditionAdapter = weatherConditionAdapter;
         this.random = new Random();
     }
 
-    public static Behavior<WeatherSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation) {
+    public static Behavior<WeatherSensorCommand> create(ActorRef<BlackboardCommand> blackboardRef, boolean useInternalSimulation, WeatherConditionAdapter weatherConditionAdapter) {
         return Behaviors.setup(context -> {
-            WeatherSensor sensor = new WeatherSensor(context, blackboardRef, useInternalSimulation);
+            WeatherSensor sensor = new WeatherSensor(context, blackboardRef, useInternalSimulation, weatherConditionAdapter);
 
             if (useInternalSimulation) {
                 context.getSelf().tell(new UpdateWeather(WeatherCondition.CLEAR.name()));
@@ -48,7 +49,7 @@ public class WeatherSensor extends AbstractBlackboardSubordinateActor<WeatherSen
     }
 
     private Behavior<WeatherSensorCommand> onUpdateWeather(UpdateWeather command) {
-        blackboardRef.tell(new PostValue(getRandomWeatherCondition(), BlackboardField.WEATHER_CONDITION.key()));
+        blackboardRef.tell(new PostValue(parseWeatherCondition(command.weatherCondition()), BlackboardField.WEATHER_CONDITION.key()));
 
         if (useInternalSimulation) {
             getContext().scheduleOnce(
@@ -62,18 +63,15 @@ public class WeatherSensor extends AbstractBlackboardSubordinateActor<WeatherSen
     }
 
     private WeatherCondition parseWeatherCondition(String weatherCondition) {
-        if (weatherConditionAdapter != null) {
+        try {
+            return WeatherCondition.valueOf(weatherCondition);
+        } catch (IllegalArgumentException e) {
             WeatherCondition convertedWeatherCondition = weatherConditionAdapter.convert(weatherCondition);
             if (convertedWeatherCondition != null) {
                 return convertedWeatherCondition;
             }
         }
-
-        try {
-            return WeatherCondition.valueOf(weatherCondition);
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Unknown weather condition: " + weatherCondition + " - was provided");
-        }
+        return WeatherCondition.CLEAR;
     }
 
     private WeatherCondition getRandomWeatherCondition() {

@@ -1,6 +1,12 @@
 package fhv.aktor.akka.fridge.command.query;
 
-import java.util.List;
+import fhv.aktor.akka.ui.UserCommandResponse;
 
-public record ProductsResponse(List<String> products) {
+import java.util.Map;
+
+public record ProductsResponse(Map<String, Integer> productQuantities) implements UserCommandResponse {
+    @Override
+    public String message() {
+        return productQuantities.toString();
+    }
 }

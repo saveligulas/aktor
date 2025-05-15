@@ -15,7 +15,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletionStage;
 
-public class CommandServer extends AllDirectives {
+public class CommandServer extends AllDirectives { // TODO: merge with UIServer
 
     public void start(ActorSystem<Void> system, ActorRef<UserCommand> commandRef) throws IOException {
         Route route = new AllDirectives() {
@@ -57,13 +57,12 @@ public class CommandServer extends AllDirectives {
         try {
             CompletionStage<ServerBinding> serverBindingFuture =
                     Http.get(system)
-                            .newServerAt("localhost", 8082)  // Changed from 8080 to 8082
+                            .newServerAt("localhost", 8082)
                             .bind(route);
 
             serverBindingFuture.toCompletableFuture().get();
             System.out.println("TerminalServer API started on http://localhost:8082/command");
 
-            // The server keeps running until the system is terminated
         } catch (Exception e) {
             System.err.println("Error starting server: " + e.getMessage());
             system.terminate();

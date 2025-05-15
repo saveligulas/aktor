@@ -7,10 +7,9 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import fhv.aktor.akka.fridge.FridgeCommand;
-import fhv.aktor.akka.fridge.command.OrderProduct;
+import fhv.aktor.akka.fridge.command.OrderProducts;
 import fhv.aktor.akka.fridge.command.ReceiveProducts;
-import fhv.aktor.akka.message.BasicMessage;
-import fhv.aktor.akka.message.MessageCommand;
+import fhv.aktor.akka.message.LoggingProvider;
 import fhv.ops.proto.OrderProcessorGrpc;
 import fhv.ops.proto.Product;
 import fhv.ops.proto.ProductOrderRequest;
@@ -27,15 +26,14 @@ public class GrpcClient extends AbstractBehavior<OrderCommand> {
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int RETRY_DELAY_MS = 1000;
     private final ActorRef<FridgeCommand> fridgeRef;
-    private final ActorRef<MessageCommand> messageRef;
     private final OrderProcessorGrpc.OrderProcessorBlockingStub blockingStub;
     private final ManagedChannel channel;
+    private final LoggingProvider.EnhancedLogger logger;
 
-    public GrpcClient(ActorContext<OrderCommand> context, ActorRef<FridgeCommand> fridgeRef,
-                      ActorRef<MessageCommand> messageRef, String host, int port) {
+    public GrpcClient(ActorContext<OrderCommand> context, ActorRef<FridgeCommand> fridgeRef, String host, int port) {
         super(context);
         this.fridgeRef = fridgeRef;
-        this.messageRef = messageRef;
+        this.logger = LoggingProvider.withContext(getContext().getLog());
 
         // Create a managed channel with proper configuration
         this.channel = ManagedChannelBuilder.forAddress(host, port)
@@ -47,7 +45,7 @@ public class GrpcClient extends AbstractBehavior<OrderCommand> {
                 .build();
 
         this.blockingStub = OrderProcessorGrpc.newBlockingStub(channel)
-                .withDeadlineAfter(10, TimeUnit.SECONDS);
+                .withDeadlineAfter(15, TimeUnit.SECONDS);
 
         // Register a shutdown hook to ensure clean channel shutdown
         context.getSystem().getWhenTerminated().thenRun(() -> {
@@ -61,41 +59,40 @@ public class GrpcClient extends AbstractBehavior<OrderCommand> {
         });
     }
 
-    public static Behavior<OrderCommand> create(ActorRef<FridgeCommand> fridgeRef,
-                                                ActorRef<MessageCommand> messageRef,
-                                                String host, int port) {
+    public static Behavior<OrderCommand> create(ActorRef<FridgeCommand> fridgeRef, String host, int port) {
         return Behaviors.setup(context ->
-                new GrpcClient(context, fridgeRef, messageRef, host, port));
+                new GrpcClient(context, fridgeRef, host, port));
     }
 
     @Override
     public Receive<OrderCommand> createReceive() {
         return newReceiveBuilder()
-                .onMessage(OrderProduct.class, this::onOrderProduct)
+                .onMessage(OrderProducts.class, this::onOrderProduct)
                 .build();
     }
 
-    private Behavior<OrderCommand> onOrderProduct(OrderProduct orderProduct) {
-        getContext().getLog().info("Processing order: {}", orderProduct.productQuantities());
+    private Behavior<OrderCommand> onOrderProduct(OrderProducts orderProducts) {
+        getContext().getLog().info("Processing order: {}", orderProducts.productQuantities());
 
         ProductOrderRequest request = ProductOrderRequest.newBuilder()
-                .putAllProductAndAmount(orderProduct.productQuantities())
+                .putAllProductAndAmount(orderProducts.productQuantities())
                 .build();
 
         int attempts = 0;
         while (attempts < MAX_RETRY_ATTEMPTS) {
             try {
-                // Use the blocking stub to make the gRPC call
-                Receipt response = blockingStub.order(request);
+                // Create a new stub for each retry to avoid using expired deadlines
+                Receipt response = OrderProcessorGrpc.newBlockingStub(channel)
+                        .withDeadlineAfter(10, TimeUnit.SECONDS)
+                        .order(request);
 
-                // Process the successful response
                 Map<String, Integer> productQuantities = new HashMap<>();
                 for (Product product : response.getItemsList()) {
                     productQuantities.put(product.getName(), product.getAmount());
                 }
 
                 fridgeRef.tell(new ReceiveProducts(productQuantities));
-                messageRef.tell(new BasicMessage(beautifyReceipt(response)));
+                logger.info(beautifyReceipt(response));
 
                 getContext().getLog().info("Order processed successfully");
                 return Behaviors.same();
@@ -106,21 +103,20 @@ public class GrpcClient extends AbstractBehavior<OrderCommand> {
                         attempts, MAX_RETRY_ATTEMPTS, e.getMessage());
 
                 if (attempts < MAX_RETRY_ATTEMPTS) {
-                    // Wait before retry
                     try {
                         Thread.sleep(RETRY_DELAY_MS);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
                 } else {
-                    // All retries failed, notify about the failure
-                    messageRef.tell(new BasicMessage("Failed to process order: " + e.getMessage()));
+                    logger.error("Failed to process order: " + e.getMessage());
                 }
             }
         }
 
         return Behaviors.same();
     }
+
 
     private String beautifyReceipt(Receipt receipt) {
         StringBuilder sb = new StringBuilder();

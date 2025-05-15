@@ -1,4 +1,6 @@
 package fhv.aktor.akka.fridge.command.value;
 
-public record Order(Product product, int quantity) {
+import java.util.Map;
+
+public record Order(Map<String, Integer> productQuantities) {
 }
