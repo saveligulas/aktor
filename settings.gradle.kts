@@ -1,2 +1,2 @@
 rootProject.name = "aktor"
-include("akka")
+include("akka", "ops")
