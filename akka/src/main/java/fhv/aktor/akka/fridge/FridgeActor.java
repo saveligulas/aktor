@@ -9,9 +9,9 @@ import akka.actor.typed.javadsl.Receive;
 import fhv.aktor.akka.fridge.command.ReceiveProduct;
 import fhv.aktor.akka.fridge.command.query.OrderHistoryResponse;
 import fhv.aktor.akka.fridge.command.query.ProductsResponse;
-import fhv.aktor.akka.fridge.command.value.Order;
 import fhv.aktor.akka.fridge.command.query.QueryOrders;
 import fhv.aktor.akka.fridge.command.query.QueryProducts;
+import fhv.aktor.akka.fridge.command.value.Order;
 import fhv.aktor.akka.order.OrderCommand;
 import fhv.aktor.akka.order.OrderProduct;
 
@@ -26,14 +26,14 @@ public class FridgeActor extends AbstractBehavior<FridgeCommand> {
     private final Map<String, Integer> itemQuantities = new HashMap<>();
     private final List<Order> orderHistory = new ArrayList<>();
 
-    public static Behavior<FridgeCommand> create(ActorRef<OrderCommand> orderRef, ItemRegistry itemRegistry) {
-        return Behaviors.setup(context -> new FridgeActor(context, orderRef, itemRegistry));
-    }
-
     protected FridgeActor(ActorContext<FridgeCommand> context, ActorRef<OrderCommand> orderRef, ItemRegistry itemRegistry) {
         super(context);
         this.orderRef = orderRef;
         this.itemRegistry = itemRegistry;
+    }
+
+    public static Behavior<FridgeCommand> create(ActorRef<OrderCommand> orderRef, ItemRegistry itemRegistry) {
+        return Behaviors.setup(context -> new FridgeActor(context, orderRef, itemRegistry));
     }
 
     @Override
